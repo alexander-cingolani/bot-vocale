@@ -1,3 +1,4 @@
+from os import environ
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CallbackContext,
@@ -6,11 +7,14 @@ from telegram.ext import (
     MessageHandler,
     CallbackQueryHandler,
     Updater,
+    JobQueue
 )
 
 from bot_utils import speech_to_text
+import set_environment_vars
 
-updater = Updater(token="5325950852:AAFPY2BebHTJ-2KPjQxUGGqe--f2AkL0R3g")
+TOKEN = environ.get("TOKEN")
+updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
 
 
@@ -40,19 +44,20 @@ def audio_message_handler(update: Update, context: CallbackContext):
     it calls the appropriate function to reply to the user."""
 
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action="TYPING")
+    
     file_name = update.message.voice.get_file().download()
     context.user_data["recognized_text"] = speech_to_text(file_name)
 
-    text = f"""Questo è quello che ho capito:\n"{context.user_data['recognized_text']}"\nè corretto?"""
-    reply_markup = InlineKeyboardMarkup(
-        [
+    recognized_text = context.user_data["recognized_text"]
+    text = f'Questo è quello che ho capito:\n"{recognized_text}"\nè corretto?'
+
+    reply_markup = [
             [InlineKeyboardButton("Sì", callback_data="correct")],
             [InlineKeyboardButton("No", callback_data="incorrect")],
         ]
-    )
 
     context.user_data["message"] = context.bot.send_message(
-        chat_id=update.effective_chat.id, text=text, reply_markup=reply_markup
+        chat_id=update.effective_chat.id, text=text, reply_markup=InlineKeyboardMarkup(reply_markup)
     )
 
 
@@ -64,11 +69,11 @@ def confirm_handler(update: Update, context: CallbackContext):
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
         return
 
-    text = "Strano, di solito non capisco una mazza.\nMeglio così."
+    text = "Strano, di solito non capisco una mazza."
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
-    user_message = context.user_data["text"]
-    if user_message == "":
+    user_message = context.user_data["recognized_text"]
+    if user_message == "lezione":
         pass
     elif user_message == "y":
         pass
@@ -78,6 +83,7 @@ def confirm_handler(update: Update, context: CallbackContext):
 
 def unrecognized_message_handler(update: Update, context: CallbackContext):
     """Handles any message which wasn't caught by the other handlers."""
+
     text = "n'agg capit"
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
@@ -87,6 +93,7 @@ def main():
     dispatcher.add_handler(CommandHandler("help", help_command))
     dispatcher.add_handler(MessageHandler(Filters.voice, audio_message_handler))
     dispatcher.add_handler(CallbackQueryHandler(confirm_handler, pattern="correct|incorrect"))
+    
     dispatcher.add_handler(
         MessageHandler(Filters.text(""), unrecognized_message_handler)
     )
