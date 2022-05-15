@@ -71,10 +71,10 @@ def confirm_handler(update: Update, context: CallbackContext):
 
     text = "Strano, di solito non capisco una mazza."
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
     user_message = context.user_data["recognized_text"]
     if user_message == "lezione":
         pass
+    
     elif user_message == "y":
         pass
     else:
