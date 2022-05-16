@@ -1,5 +1,6 @@
 from datetime import datetime
 import locale
+import os
 import time
 from os import environ
 import random
@@ -15,9 +16,8 @@ from telegram.ext import (
     Updater,
 )
 
-import set_environment_vars
 from bot_data import day_of_week, materie, statuses
-from bot_utils import append_to_csv, edit_csv, read_csv, speech_to_text, read_file
+from bot_utils import append_to_csv, edit_csv, read_csv, speech_to_text, read_file, text_to_speech
 
 TOKEN = environ.get("TOKEN")
 updater = Updater(token=TOKEN)
@@ -77,12 +77,38 @@ def help_command(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
-def file_handler(update: Update, context: CallBackContext):
+def file_handler(update: Update, context: CallbackContext):
+    """Takes the text from the user's file and sends him an audio message which reads the text contained in the file
 
+    Args:
+        update (Update): _description_
+        context (CallbackContext): _description_
+    """
     file_name = update.file.get_file().download()
     text = read_file(file_name)
     audio_message = text_to_speech(text)
-    context.bot.send_voice(chat_id=update.effective_chat.id, audio_message)
+    context.bot.send_voice(chat_id=update.effective_chat.id, text = audio_message)
+    
+
+def write_file_handler(update: Update, context: CallbackContext):
+    """Handles any voice message received by the bot, after took its content
+    he writes it in a file
+
+    Args:
+        update (Update): update
+        context (CallbackContext): context
+    """
+    context.bot.send_chat_action(chat_id=update.effective_chat.id, action="TYPING")
+
+    file_name = update.message.voice.get_file().download()
+    context.user_data["recognized_text"] = speech_to_text(file_name)
+
+    recognized_text = context.user_data["recognized_text"]
+    "ANCORA LO DEVO FINIRE"
+
+
+def write_screen_handler(update: Update, context: CallbackContext):
+    "ANCORA LO DEVO FINIRE"
     
 
 def audio_message_handler(update: Update, context: CallbackContext):
@@ -138,6 +164,10 @@ def confirm_handler(update: Update, context: CallbackContext):
         add_birthday(update, context)
     elif "compleanno" in user_message:
         find_birthday(update, context)
+    elif "trascrivi file" in user_message:
+        write_file_handler(update,context)
+    elif "trascrivi schermo" in user_message:
+        write_screen_handler(update,context)
     else:
         text = "Boh avevi detto che avevo capito bene ma non mi pare proprio, ripeti grazie"
 
@@ -152,9 +182,15 @@ def status_handler(update: Update, context: CallbackContext):
     text = statuses[random.randint(0,len(statuses) - 1)]
 
     
-def file_handler(update: Update, context: CallBackContext):
-    ogg_file_name = oga_file_name.replace("oga", "ogg")
-    os.rename(oga_file_name, ogg_file_name)
+def file_handler(update: Update, context: CallbackContext):
+    """Takes the text from the user's file and sends him an audio message which reads the text contained in the file
+
+    Args:
+        update (Update): _description_
+        context (CallbackContext): _description_
+    """
+    ogg_file_name = ogg_file_name.replace("oga", "ogg")
+    os.rename(ogg_file_name, ogg_file_name)
 
     pydub.AudioSegment.from_ogg(ogg_file_name).export()
     audio_segment = pydub.AudioSegment.from_ogg(ogg_file_name)
@@ -164,7 +200,7 @@ def file_handler(update: Update, context: CallBackContext):
     file_name = update.file.get_file().download()
     text = read_file(file_name)
     audio_message = text_to_speech(text)
-    context.bot.send_voice(chat_id=update.effective_chat.id, audio_message)
+    context.bot.send_voice(chat_id=update.effective_chat.id, text = audio_message)
     
     
 def answer_handler(update: Update, context: CallbackContext):
@@ -262,14 +298,21 @@ def add_birthday(update: Update, context: CallbackContext, **kwargs):
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
  
-def find_birthday(update: Update, context: CallBackContext):
+def find_birthday(update: Update, context: CallbackContext):
+    """Finds the birthday of the person chosen by the user and sends him that date.
+    Args:
+        update (Update): update
+        context (CallbackContext): context
+    kwargs:
+        from_audio (Bool): True
+    """
     user_message = user_message = update.message.text.split()
     person = user_message[1] + " " + user_message[2]
     data = read_csv("birthday.csv")
     for x in data:
         if x["Nome"] == person:
             birthday = time.strptime(x["Data"], "%d %m").strftime("%d/%B")
-            text = f"{x["Nome"]} compie gli anni il {birthday}"
+            text = f"{x['Nome']} compie gli anni il {birthday}"
             context.bot.send_message(chat_id=update.effective_chat.id, text=text)
             break
 
