@@ -9,10 +9,8 @@ recognizer = speech_recognition.Recognizer()
 
 def convert_oga_to_wav(oga_file_name) -> str:
     """Converts .oga audio file into .wav audio file.
-
     Args:
         oga_file_name (str): oga_file_name
-
     Returns:
         str: wav_file_name
     """
@@ -31,10 +29,8 @@ def convert_oga_to_wav(oga_file_name) -> str:
 
 def speech_to_text(oga_file_name) -> str:
     """Returns the audio file's content converted into text (powered by Google)
-
     Args:
         file_oga_name (str): oga_file_name
-
     Returns:
         str: text
     """
@@ -53,7 +49,6 @@ def speech_to_text(oga_file_name) -> str:
 
 def text_to_speech(text) -> None:
     """Converts text into a .oga audio file, using window's default voice
-
     Args:
         text (str): text_to_convert
     """
@@ -70,10 +65,8 @@ def text_to_speech(text) -> None:
 
 def read_csv(filename) -> list:
     """Returns a list of dictionaries extrapolated from the csv file.
-
     Args:
         filename (_type_): _description_
-
     Returns:
         list: _description_
     """
@@ -87,7 +80,6 @@ def read_csv(filename) -> list:
 
 def edit_csv(filename: str, data: dict):
     """Rewrites the csv file with the modified data.
-
     Args:
         filename (str): any
         new_data (dict): any
@@ -101,7 +93,6 @@ def edit_csv(filename: str, data: dict):
 
 def append_to_csv(filename: str, newline: str):
     """Adds a new line to the csv file.
-
     Args:
         filename (str): _description_
         newline (str): _description_

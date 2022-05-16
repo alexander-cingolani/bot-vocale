@@ -1,7 +1,9 @@
-import datetime
+from datetime import datetime
 import locale
 import time
 from os import environ
+import random
+
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -14,8 +16,8 @@ from telegram.ext import (
 )
 
 import set_environment_vars
-from bot_data import day_of_week, materie
-from bot_utils import append_to_csv, edit_csv, read_csv, speech_to_text
+from bot_data import day_of_week, materie, statuses
+from bot_utils import append_to_csv, edit_csv, read_csv, speech_to_text, read_file
 
 TOKEN = environ.get("TOKEN")
 updater = Updater(token=TOKEN)
@@ -46,16 +48,22 @@ def send_command_list(update: Update, context: CallbackContext):
         update (Update): update
         context (CallbackContext): _description_
     """
-    text = "Ecco un elenco delle mie funzionalità:\n"\
-        "  - con il comando /ricordami_lezioni, ogni giorno ti invierò una lista"\
-            " con le materie del mattino seguente.\n" \
-        "  - con il comando /ricordami_compleanni, ti invierò una notifica ogni"\
-            " volta che è il compleanno di uno dei tuoi compagni.\n" \
-        '  - per aggiungere qualcuno alla lista di compleanni, invia un vocale"\
-            " o un messaggio contenente le parole "Nome Cognome compie gli anni il DD/MM' \
-        '  - per sapere la prossima lezione di una materia specifica "\
-            "chiedimi (tramite vocale o messaggio) "Quando c\'è lezione di ___?"'
     
+    text = """Ecco un elenco delle mie funzionalità:\n
+        - con il comando /ricordami_lezioni, ogni giorno ti invierò una lista
+            con le materie del mattino seguente.\n
+        - con il comando /ricordami_compleanni, ti invierò una notifica ogni
+            volta che è il compleanno di uno dei tuoi compagni.\n
+        - per aggiungere qualcuno alla lista di compleanni, invia un vocale
+            o un messaggio contenente le parole "Nome Cognome compie gli anni il DD/MM"
+        - per sapere la prossima lezione di una materia specifica 
+            chiedimi (tramite vocale o messaggio) "Quando c\'è lezione di ___?"
+        - per sapere come sto chiedimi "come stai"
+        - se mandi un file posso leggerlo a voce alta
+        - per farmi scrivere, in un file, ciò che hai detto (in un vocale) pronuncia "trascrivi file" all'inizio del vocale
+        - per farmi scrivere, sullo schermo, ciò che hai detto (in un vocale) pronuncia "trascrivi schermo" all'inizio del vocale
+        - per sapere che ore sono chiedimi (tramite vocale o messaggio) "che ore sono" o "che ora è"
+            """
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
@@ -68,6 +76,14 @@ def help_command(update: Update, context: CallbackContext):
     
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
+
+def file_handler(update: Update, context: CallBackContext):
+
+    file_name = update.file.get_file().download()
+    text = read_file(file_name)
+    audio_message = text_to_speech(text)
+    context.bot.send_voice(chat_id=update.effective_chat.id, audio_message)
+    
 
 def audio_message_handler(update: Update, context: CallbackContext):
     """Handles any voice message received by the bot, after analizing its content
@@ -84,7 +100,7 @@ def audio_message_handler(update: Update, context: CallbackContext):
     context.user_data["recognized_text"] = speech_to_text(file_name)
 
     recognized_text = context.user_data["recognized_text"]
-    text = f'Questo è quello che ho capito:\n"{recognized_text}"\nè corretto?'
+    text = f'"{recognized_text}"\nè corretto?'
 
     reply_markup = [
         [InlineKeyboardButton("Sì", callback_data="correct")],
@@ -111,19 +127,17 @@ def confirm_handler(update: Update, context: CallbackContext):
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
         return
 
-    text = "Strano, di solito non capisco una mazza."
-    context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
     user_message = context.user_data["recognized_text"].lower()
     if "come stai" in user_message:
         status_handler(update, context)
     elif "che ore sono" in user_message or "che ora è" in user_message:
         send_time(update, context)
-    elif "quando c'è" in user_message or "quando è la prossima" in user_message:
+    elif "quando c'è" in user_message:
         send_next_lesson(update, context)
     elif "compie gli anni" in user_message:
-
         add_birthday(update, context)
+    elif "compleanno" in user_message:
+        find_birthday(update, context)
     else:
         text = "Boh avevi detto che avevo capito bene ma non mi pare proprio, ripeti grazie"
 
@@ -135,11 +149,24 @@ def status_handler(update: Update, context: CallbackContext):
         update (Update): _description_
         context (CallbackContext): _description_
     """
+    text = statuses[random.randint(0,len(statuses) - 1)]
 
-    text = "Sono un bot, non ho sensazioni, però al momento sono operativo e funzionante. Tu?"
-    context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+    
+def file_handler(update: Update, context: CallBackContext):
+    ogg_file_name = oga_file_name.replace("oga", "ogg")
+    os.rename(oga_file_name, ogg_file_name)
 
+    pydub.AudioSegment.from_ogg(ogg_file_name).export()
+    audio_segment = pydub.AudioSegment.from_ogg(ogg_file_name)
+    audio_segment.export("converted_file.wav", "wav")
 
+    os.remove(ogg_file_name)
+    file_name = update.file.get_file().download()
+    text = read_file(file_name)
+    audio_message = text_to_speech(text)
+    context.bot.send_voice(chat_id=update.effective_chat.id, audio_message)
+    
+    
 def answer_handler(update: Update, context: CallbackContext):
     """Sends the user a different message according to their answer to the previous question.
 
@@ -234,6 +261,19 @@ def add_birthday(update: Update, context: CallbackContext, **kwargs):
 
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
+ 
+def find_birthday(update: Update, context: CallBackContext):
+    user_message = user_message = update.message.text.split()
+    person = user_message[1] + " " + user_message[2]
+    data = read_csv("birthday.csv")
+    for x in data:
+        if x["Nome"] == person:
+            birthday = time.strptime(x["Data"], "%d %m").strftime("%d/%B")
+            text = f"{x["Nome"]} compie gli anni il {birthday}"
+            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+            break
+
+
 
 def unrecognized_message_handler(update: Update, context: CallbackContext):
     """Handles any message which wasn't caught by the other handlers.
@@ -264,6 +304,9 @@ def main():
     dispatcher.add_handler(
         MessageHandler(Filters.regex(r"bene|male|benissimo|uno schifo"), answer_handler)
     )
+
+    dispatcher.add.handler(MessageHandler(Filters.regex(r"[Cc]he ore sono|[Cc]he ora è"),send_time))
+
     dispatcher.add_handler(MessageHandler(Filters.text, unrecognized_message_handler))
     updater.start_polling()
 
