@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import speech_recognition
 import pydub
@@ -13,7 +14,6 @@ def convert_oga_to_wav(oga_file_name: str) -> str:
     Returns:
         str: wav_file_name
     """
-
     ogg_file_name = oga_file_name.replace("oga", "ogg")
     os.rename(oga_file_name, ogg_file_name)
 
@@ -33,7 +33,6 @@ def speech_to_text(oga_file_name: str) -> str:
     Returns:
         str: text
     """
-
     converted_file = convert_oga_to_wav(oga_file_name)
     audio_file = speech_recognition.AudioFile(converted_file)
 
@@ -78,5 +77,13 @@ def read_file(filename: str):
         return text
 
 
+def time_delta(item):
+    date = item[1]
+    date = datetime.strptime(date, "%d/%m").date().replace(year=datetime.now().year)
+    if date < datetime.now().date():
+        return 365 + (date - datetime.now().date()).days
+    return (date - datetime.now().date()).days
+
 if __name__ == "__main__":
     print("Questo file contiene solo funzioni")
+    print(time_delta("20/05"))
