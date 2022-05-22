@@ -75,7 +75,13 @@ def read_file(filename: str):
     with open(filename, "r") as file:
         text = file.read()
         return text
+    
 
+def write_file(text):
+    
+    with open("text_file.txt", "w") as file:
+        file.write(text)
+        return "text_file.txt"
 
 def time_delta(item):
     date = item[1]
