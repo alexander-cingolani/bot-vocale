@@ -1,5 +1,5 @@
+from datetime import datetime
 import os
-import csv
 import speech_recognition
 import pydub
 import pyttsx3
@@ -7,14 +7,13 @@ import pyttsx3
 recognizer = speech_recognition.Recognizer()
 
 
-def convert_oga_to_wav(oga_file_name) -> str:
-    """Converts .oga audio file into .wav audio file.
+def convert_oga_to_wav(oga_file_name: str) -> str:
+    """Converts .oga audio file into .wav audio file, returns converted file name.
     Args:
         oga_file_name (str): oga_file_name
     Returns:
         str: wav_file_name
     """
-
     ogg_file_name = oga_file_name.replace("oga", "ogg")
     os.rename(oga_file_name, ogg_file_name)
 
@@ -27,31 +26,34 @@ def convert_oga_to_wav(oga_file_name) -> str:
     return "converted_file.wav"
 
 
-def speech_to_text(oga_file_name) -> str:
+def speech_to_text(oga_file_name: str) -> str:
     """Returns the audio file's content converted into text (powered by Google)
     Args:
         file_oga_name (str): oga_file_name
     Returns:
         str: text
     """
-
     converted_file = convert_oga_to_wav(oga_file_name)
     audio_file = speech_recognition.AudioFile(converted_file)
 
     with audio_file as source:
         audio_data = recognizer.record(source)
-
-    text = recognizer.recognize_google(audio_data, language="it-IT")
-
+    try:
+        text = recognizer.recognize_google(audio_data, language="it-IT")
+    except speech_recognition.UnknownValueError:
+        text = ""
     os.remove("converted_file.wav")
     return text
 
 
-def text_to_speech(text) -> None:
-    """Converts text into a .oga audio file, using window's default voice
+def text_to_speech(text: str) -> None:
+    """Converts text into a .oga audio file, using window's default voice.
+    Returns converted file name
+
     Args:
         text (str): text_to_convert
     """
+
     engine = pyttsx3.init()
 
     # Selects italian voice from windows
@@ -61,47 +63,33 @@ def text_to_speech(text) -> None:
     )
     engine.save_to_file(text, "output_message.oga")
     engine.runAndWait()
+    return "output_message.oga"
 
 
-def read_csv(filename) -> list:
-    """Returns a list of dictionaries extrapolated from the csv file.
-    Args:
-        filename (_type_): _description_
-    Returns:
-        list: _description_
-    """
-    with open(filename, "r") as file:
-        reader = csv.DictReader(file)
-        data = []
-        for dictionary in reader:
-            data.append(dictionary)
-    return data
+def read_file(filename: str):
+    """Returns the text contained in the given txt file
 
-
-def edit_csv(filename: str, data: dict):
-    """Rewrites the csv file with the modified data.
     Args:
         filename (str): any
-        new_data (dict): any
     """
-    with open(filename, "w") as file:
-        writer = csv.DictWriter(file, fieldnames=["Nome", "Data"])
-        writer.writeheader()
-        for line in data:
-            file.writerow(line)
+    with open(filename, "r") as file:
+        text = file.read()
+        return text
+    
 
+def write_file(text):
+    
+    with open("text_file.txt", "w") as file:
+        file.write(text)
+        return "text_file.txt"
 
-def append_to_csv(filename: str, newline: str):
-    """Adds a new line to the csv file.
-    Args:
-        filename (str): _description_
-        newline (str): _description_
-    """
-
-    with open(filename, "a") as file:
-        file.write(newline)
-
+def time_delta(item):
+    date = item[1]
+    date = datetime.strptime(date, "%d/%m").date().replace(year=datetime.now().year)
+    if date < datetime.now().date():
+        return 365 + (date - datetime.now().date()).days
+    return (date - datetime.now().date()).days
 
 if __name__ == "__main__":
-
-    text_to_speech("ciao")
+    print("Questo file contiene solo funzioni")
+    print(time_delta("20/05"))

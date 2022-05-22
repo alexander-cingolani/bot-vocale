@@ -1,10 +1,8 @@
-from datetime import datetime
 import locale
-import os
-import time
-from os import environ
 import random
-
+from datetime import datetime, time
+from os import environ
+import set_environment_vars
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -13,124 +11,143 @@ from telegram.ext import (
     CommandHandler,
     Filters,
     MessageHandler,
+    PicklePersistence,
     Updater,
 )
 
-from bot_data import day_of_week, materie, statuses
-from bot_utils import append_to_csv, edit_csv, read_csv, speech_to_text, read_file, text_to_speech
-
-TOKEN = environ.get("TOKEN")
-updater = Updater(token=TOKEN)
-dispatcher = updater.dispatcher
-
-
-locale.setlocale(locale.LC_ALL, "ita_ita")
+import set_environment_vars
+from components.birthday_callbacks import (
+    add_birthday,
+    add_known_birthdays,
+    check_birthdays,
+    remind_birthdays,
+    remove_birthday,
+    send_specific_birthday,
+    show_birthday_list,
+    stop_reminding_birthdays,
+)
+from components.const import status_messages
+from components.schedule_callbacks import (
+    remind_schedule,
+    send_next_lesson,
+    send_schedule,
+    stop_reminding_schedule,
+)
+from components.utils import read_file, speech_to_text, text_to_speech, write_file
 
 
 def start_command(update: Update, context: CallbackContext):
-    """Welcomes the user and asks to send a voice message/command
-
-    Args:
-        update (Update): _description_
-        context (CallbackContext): _description_
-    """
+    """Welcomes the user and asks to send a voice message/command"""
 
     context.bot.send_message(
-        chat_id=update.effective_chat.id, text="Ciao! Puoi mandarmi un vocale o un messaggio e io ti risponderò."\
-            "Per scoprire tutte le mie funzionalità puoi utilizzare /command_list"
+        chat_id=update.effective_chat.id,
+        text="Ciao! Posso ricordarti dei compleanni e delle materie di scuola,"
+        " insieme a parecchie altre cose <i>utilissime</i> (tipo dirti che ore sono).\n"
+        "Rispondo sia ai messaggi vocali che ai messaggi testuali.\n"
+        "Per scoprire tutte le mie funzionalità puoi utilizzare /lista_comandi",
+        parse_mode="HTML",
     )
 
 
 def send_command_list(update: Update, context: CallbackContext):
-    """Sends the user a list of commans and functionalities.
+    """Sends the user a list of commands and functionalities."""
 
-    Args:
-        update (Update): update
-        context (CallbackContext): _description_
-    """
-    
-    text = """Ecco un elenco delle mie funzionalità:\n
-        - con il comando /ricordami_lezioni, ogni giorno ti invierò una lista
-            con le materie del mattino seguente.\n
-        - con il comando /ricordami_compleanni, ti invierò una notifica ogni
-            volta che è il compleanno di uno dei tuoi compagni.\n
-        - per aggiungere qualcuno alla lista di compleanni, invia un vocale
-            o un messaggio contenente le parole "Nome Cognome compie gli anni il DD/MM"
-        - per sapere la prossima lezione di una materia specifica 
-            chiedimi (tramite vocale o messaggio) "Quando c\'è lezione di ___?"
-        - per sapere come sto chiedimi "come stai"
-        - se mandi un file posso leggerlo a voce alta
-        - per farmi scrivere, in un file, ciò che hai detto (in un vocale) pronuncia "trascrivi file" all'inizio del vocale
-        - per farmi scrivere, sullo schermo, ciò che hai detto (in un vocale) pronuncia "trascrivi schermo" all'inizio del vocale
-        - per sapere che ore sono chiedimi (tramite vocale o messaggio) "che ore sono" o "che ora è"
-            """
-    context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+    text = """
+<b>Comandi testuali: (Hanno tutti una controparte vocale)</b>
+/ricordami_materie - Ti invierò giornalmente la lista delle materie del mattino seguente.
+/non_mi_ricordare_materie - Smetterò di ricordarti delle tue materie.
+/ricordami_compleanni - Ti ricorderò dei compleanni che aggiungi e che aggiungerai.
+/non_mi_ricordare_compleanni - Smetterò di ricordarti dei compleanni.
+/compleanni_salvati - Visualizza i compleannni salvati dal più vicino al più lontano.
+/aggiungi_compleanni_3BS - Aggiungerò i compleanni della 3BS ai tuoi compleanni salvati.
+/lista_comandi - Ti invierò questa lista.
+/help - Ti invierò informazioni su come contattare gli sviluppatori in caso di problemi.
+
+<b>Comandi vocali:</b>
+<i>"Trascrivi su file ..."</i> - Trascriverò ciò che hai detto in un file di testo.
+<i>"Ripeti ..."</i> - Ripeterò ciò che hai detto in un messaggio
+<i>"Ricordami dei compleanni salvati"</i> - Ti ricorderò dei compleanni che hai aggiunto
+e che aggiungerai.
+<i>"Ricordami le materie"</i> - Ogni giorno ti invierò la lista delle materie del mattino seguente.
+<i>"Non ricordarmi le materie"</i> - Smetterò di ricordarti delle tue materie.
+<i>"Mostrami i compleanni salvati"</i> - Per vedere l'elenco dei compleanni salvati.
+<i>"Aggiungi i compleanni della 3BS"</i> - Aggiungerò i compleanni della 3BS ai tuoi compleanni salvati.
+
+<b>Comandi vocali e testuali:</b>
+<i>"Nome Cognome compie gli anni il DD/MM"</i> - Per aggiungere un compleanno.
+<i>"Dimentica il compleanno di Nome Cognome"</i> - Per eliminare un compleanno.
+<i>"Quando compie gli anni Nome Cognome?"</i> - Per sapere quando qualcuno compie gli anni.
+<i>"Quando c'è lezione di _____?"</i> - Per sapere la prossima volta che c'è una materia.
+<i>"Come stai?"</i> - Per sapere come sto.
+<i>"Che ore sono?"</i> - Per sapere che ore sono.
+
+Se mi invii un file di testo ti invierò un vocale dove lo leggo ad alta voce.
+"""
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text=text, parse_mode="HTML"
+    )
 
 
 def help_command(update: Update, context: CallbackContext):
     """Sends the user a list of commands with their functions,
     as well as info on how to contact the developers."""
+    text = (
+        "Stai riscontrando un problema con il bot? Puoi contattare gli sviluppatori!"
+        "\n • @gino_pincopallo \n • @Mattiiiaaa"
+    )
 
-    text = "Stai riscontrando un problema con il bot? Puoi contattare gli sviluppatori 💻!" \
-        "\n • @gino_pincopallo\n • @id_telegram_mattia"
-    
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
 def file_handler(update: Update, context: CallbackContext):
-    """Takes the text from the user's file and sends him an audio message which reads the text contained in the file
-
-    Args:
-        update (Update): _description_
-        context (CallbackContext): _description_
-    """
+    """Takes the text from the user's file and sends him a voice message
+    which reads the text contained in the file"""
     file_name = update.file.get_file().download()
     text = read_file(file_name)
     audio_message = text_to_speech(text)
-    context.bot.send_voice(chat_id=update.effective_chat.id, text = audio_message)
+    context.bot.send_voice(chat_id=update.effective_chat.id, text=audio_message)
+
+
+def speech_to_text_file(update: Update, context: CallbackContext):
+    """Transcribes the voice message sent by the user into a txt file"""
+    text = context.user_data["recognized_text"]
+    text = text[17:]
+    
+    file_name = write_file(text)
+    
+    context.bot.send_document(chat_id=update.effective_chat.id, document = file_name)
     
 
-def write_file_handler(update: Update, context: CallbackContext):
-    """Handles any voice message received by the bot, after took its content
-    he writes it in a file
-
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    """
-    context.bot.send_chat_action(chat_id=update.effective_chat.id, action="TYPING")
-
-    file_name = update.message.voice.get_file().download()
-    context.user_data["recognized_text"] = speech_to_text(file_name)
-
-    recognized_text = context.user_data["recognized_text"]
-    "ANCORA LO DEVO FINIRE"
-
-
-def write_screen_handler(update: Update, context: CallbackContext):
-    "ANCORA LO DEVO FINIRE"
+def speech_to_text_message(update: Update, context: CallbackContext):
+    """Transcribes the voice mesage sent by the user into a message."""
+    text = context.user_data["recognized_text"]
+    text = text[6:]
     
+    context.bot.send_message(chat_id=update.effective_chat.id, text = text)
+
 
 def audio_message_handler(update: Update, context: CallbackContext):
     """Handles any voice message received by the bot, after analizing its content
-    it asks the user if it has understood correctly.
-
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    """
-
+    it asks the user if it has understood correctly."""
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action="TYPING")
-
     file_name = update.message.voice.get_file().download()
-    context.user_data["recognized_text"] = speech_to_text(file_name)
+    recognized_text = speech_to_text(file_name)
+    if not recognized_text:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Hai detto qualcosa? Non ti ho sentito.",
+        )
+        return
+    context.user_data["recognized_text"] = recognized_text
 
     recognized_text = context.user_data["recognized_text"]
     text = f'"{recognized_text}"\nè corretto?'
 
     reply_markup = [
-        [InlineKeyboardButton("Sì", callback_data="correct")],
-        [InlineKeyboardButton("No", callback_data="incorrect")],
+        [
+            InlineKeyboardButton("Sì", callback_data="correct"),
+            InlineKeyboardButton("No", callback_data="incorrect"),
+        ],
     ]
 
     context.user_data["message"] = context.bot.send_message(
@@ -141,217 +158,156 @@ def audio_message_handler(update: Update, context: CallbackContext):
 
 
 def confirm_handler(update: Update, context: CallbackContext):
-    """Asks user to confirm if the text generated from the voice message is correct.
-
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    """
-
+    """Asks user to confirm if the text generated from the voice message is correct."""
     if update.callback_query.data == "incorrect":
         text = "Non ho capito bene, ripeti perfavore."
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
         return
 
-    user_message = context.user_data["recognized_text"].lower()
-    if "come stai" in user_message:
+    transcribed_message = context.user_data["recognized_text"].lower()
+
+    if "trascrivi su file" in transcribed_message:
+        speech_to_text_file(update, context)
+    elif "ripeti" in transcribed_message:
+        speech_to_text_message(update,context)
+    elif "come stai" in transcribed_message:
         status_handler(update, context)
-    elif "che ore sono" in user_message or "che ora è" in user_message:
+    elif "che ore sono" in transcribed_message:
         send_time(update, context)
-    elif "quando c'è" in user_message:
+    elif "quando c'è" in transcribed_message:
         send_next_lesson(update, context)
-    elif "compie gli anni" in user_message:
-        add_birthday(update, context)
-    elif "compleanno" in user_message:
-        find_birthday(update, context)
-    elif "trascrivi file" in user_message:
-        write_file_handler(update,context)
-    elif "trascrivi schermo" in user_message:
-        write_screen_handler(update,context)
+    elif "quando compie gli anni" in transcribed_message:
+        send_specific_birthday(update, context)
+    elif "compie gli anni" in transcribed_message:
+        add_birthday(update, context, from_audio=True)
+    elif "compleanno" in transcribed_message:
+        send_specific_birthday(update, context)
+    elif "dimentica" in transcribed_message:
+        remove_birthday(update, context, from_audio=True)
+    elif "mostrami i compleanni salvati" in transcribed_message:
+        show_birthday_list(update, context)
+    elif "ricordami dei compleanni salvati" in transcribed_message:
+        remind_birthdays(update, context)
+    elif "ricordami le materie" in transcribed_message:
+        remind_schedule(update, context)
+    elif "non ricordarmi dei compleanni salvati" in transcribed_message:
+        stop_reminding_birthdays(update, context)
+    elif "non ricordarmi le materie" in transcribed_message:
+        stop_reminding_schedule(update, context)
+    elif "aggiungi i compleanni della terza b s" in transcribed_message:
+        add_known_birthdays(update, context)
     else:
-        text = "Boh avevi detto che avevo capito bene ma non mi pare proprio, ripeti grazie"
+        text = "Temo di non aver capito, puoi ripetere perfavore?"
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
 def status_handler(update: Update, context: CallbackContext):
-    """Tells user status of the bot and asks for user status
+    """Tells user status of the bot and asks for user status"""
+    text = status_messages[random.randint(0, len(status_messages) - 1)]
+    context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
-    Args:
-        update (Update): _description_
-        context (CallbackContext): _description_
-    """
-    text = statuses[random.randint(0,len(statuses) - 1)]
 
-    
-def file_handler(update: Update, context: CallbackContext):
-    """Takes the text from the user's file and sends him an audio message which reads the text contained in the file
-
-    Args:
-        update (Update): _description_
-        context (CallbackContext): _description_
-    """
-    ogg_file_name = ogg_file_name.replace("oga", "ogg")
-    os.rename(ogg_file_name, ogg_file_name)
-
-    pydub.AudioSegment.from_ogg(ogg_file_name).export()
-    audio_segment = pydub.AudioSegment.from_ogg(ogg_file_name)
-    audio_segment.export("converted_file.wav", "wav")
-
-    os.remove(ogg_file_name)
+def text_file_to_speech(update: Update, context: CallbackContext):
+    """Takes the text from the user's file and sends him an audio message
+    which reads the text contained in the file"""
     file_name = update.file.get_file().download()
     text = read_file(file_name)
-    audio_message = text_to_speech(text)
-    context.bot.send_voice(chat_id=update.effective_chat.id, text = audio_message)
-    
-    
-def answer_handler(update: Update, context: CallbackContext):
-    """Sends the user a different message according to their answer to the previous question.
+    voice_message = text_to_speech(text)
 
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    """
-    user_message = update.message.text
-    if "bene" in user_message.lower():
+    context.bot.send_voice(update.effective_chat.id, voice_message)
+
+
+def user_status_handler(update: Update, context: CallbackContext):
+    """Sends the user a different message according to their answer to the previous question."""
+    try:
+        user_message = update.message.text.lower()
+    except AttributeError:
+        user_message = context.user_data["recognized_text"].lower()
+
+    if "ben" in user_message or "ok" in user_message:
         text = ":)"
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-    if "male" in user_message.lower():
+    if "mal" in user_message.lower() or "schifo" in user_message:
         text = ":("
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
 def send_time(update: Update, context: CallbackContext):
-    """Sends the user the current time.
-
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    """
-    current_time = f"sono le: {datetime.now().strftime('%h:m')}"
+    """Sends the user the current time."""
+    current_time = f"Sono le {datetime.now().strftime('%H:%M')}"
     context.bot.send_message(chat_id=update.effective_chat.id, text=current_time)
 
 
-def send_next_lesson(update: Update, context: CallbackContext):
-    """Sends the user a message containing info on when the next lesson is.
-
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    """
-    text = ""
-    user_message = update.message.text.split()
-    for key, value in materie.items():
-        value = value.split("•")
-        for subject in value:
-            if user_message[2] in subject:
-                time, subject = subject.split()
-                text = f"{day_of_week[key]} alle {time}"
-                break
-    if not text:
-        text = f"{user_message[2]} non esiste"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
-
-def add_birthday(update: Update, context: CallbackContext, **kwargs):
-    """Adds birthday to the csv file containing the registered birthdays.
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    kwargs:
-        from_audio (Bool): True
-    """
-
-    user_message = update.message.text.split()
-    name = user_message[0]
-    surname = user_message[1]
-    birthday = user_message[6]
-
-    if kwargs.get("from_audio"):
-        birthday = f"{user_message[6]} {user_message[7]}"
-        text = f"Ok! Il {birthday} ti ricorderò del compleanno di {name} {surname}"
-        try:
-            birthday = time.strptime(birthday, "%d %B").strftime("%d/%m")
-        except ValueError:
-            text = (
-                "Non credo di aver capito bene, potresti ripetere? Per aggiungere un compleanno"
-                " a quelli che ti devo ricordare manda un vocale/scrivi un messaggio"
-                ' dove dici "Nome Cognome compie gli anni il giorno mese"'
-            )
-
-    if name.isalpha() and surname.isalpha() and birthday[:2].isnumeric():
-        data = read_csv("birthdays.csv")
-
-        index = None
-        for dictionary in data:
-            if dictionary["Nome"] == f"{name} {surname}":
-                text = f"Il compleanno di {name} {surname} è già stato registrato."
-                if dictionary["Data"] == birthday:
-                    text += f"Ho modificato il compleanno da {dictionary['Data']} a {birthday}"
-                    index = data.index(dictionary)
-                break
-
-        if index:
-            data[index]["Data"] = birthday
-            edit_csv("birthdays.csv", data)
-        else:
-            append_to_csv("birthdays.csv", f"{name} {surname},{birthday}\n")
-
-    context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
- 
-def find_birthday(update: Update, context: CallbackContext):
-    """Finds the birthday of the person chosen by the user and sends him that date.
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    kwargs:
-        from_audio (Bool): True
-    """
-    user_message = user_message = update.message.text.split()
-    person = user_message[1] + " " + user_message[2]
-    data = read_csv("birthday.csv")
-    for x in data:
-        if x["Nome"] == person:
-            birthday = time.strptime(x["Data"], "%d %m").strftime("%d/%B")
-            text = f"{x['Nome']} compie gli anni il {birthday}"
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            break
-
-
-
 def unrecognized_message_handler(update: Update, context: CallbackContext):
-    """Handles any message which wasn't caught by the other handlers.
-
-    Args:
-        update (Update): update
-        context (CallbackContext): context
-    """
-
+    """Handles any message which wasn't caught by other handlers."""
     text = "n'agg capit"
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
 def main():
-    dispatcher.add_handler(CommandHandler("start", start_command))
+    """Runs the bot"""
+
+    locale.setlocale(locale.LC_ALL, "ita_ita")
+    TOKEN = environ.get("TOKEN")
+
+    persistence = PicklePersistence(filename="botpersistence")
+    updater = Updater(token=TOKEN, persistence=persistence)
+    job_queue = updater.job_queue
+
+    dispatcher = updater.dispatcher
+    job_queue.run_daily(
+        callback=send_schedule, days=(0, 1, 2, 3, 4, 5), time=time(hour=15)
+    )
+    job_queue.run_daily(callback=check_birthdays, time=time(hour=7))
+    dispatcher.add_handler(CommandHandler("inizia", start_command))
     dispatcher.add_handler(CommandHandler("help", help_command))
-    dispatcher.add_handler(CommandHandler("command_list", send_command_list))
+    dispatcher.add_handler(CommandHandler("ricordami_compleanni", remind_birthdays))
+    dispatcher.add_handler(CommandHandler("aggiungi_compleanni_3BS", add_known_birthdays))
+    dispatcher.add_handler(CommandHandler("non_mi_ricordare_compleanni", stop_reminding_birthdays))
+    dispatcher.add_handler(CommandHandler("ricordami_materie", remind_schedule))
+    dispatcher.add_handler(CommandHandler("non_mi_ricordare_materie", stop_reminding_schedule))
+    dispatcher.add_handler(CommandHandler("lista_comandi", send_command_list))
+    dispatcher.add_handler(CommandHandler("compleanni_salvati", show_birthday_list))
+    dispatcher.add_handler(
+        MessageHandler(Filters.regex(r"[Dd]imentica il compleanno di"), remove_birthday)
+    )
+    dispatcher.add_handler(MessageHandler(Filters.regex("[Cc]iao"), start_command))
     dispatcher.add_handler(MessageHandler(Filters.voice, audio_message_handler))
+    dispatcher.add_handler(
+        MessageHandler(Filters.document.category("audio/oga"), audio_message_handler)
+    )
+    dispatcher.add_handler(
+        CallbackQueryHandler(add_known_birthdays, pattern="add known birthdays")
+    )
     dispatcher.add_handler(
         CallbackQueryHandler(confirm_handler, pattern="correct|incorrect")
     )
     dispatcher.add_handler(
+        MessageHandler(
+            Filters.regex(r"[Qq]uando compie gli anni"), send_specific_birthday
+        )
+    )
+    dispatcher.add_handler(
         MessageHandler(Filters.regex(r"compie gli anni il \d\d/\d\d"), add_birthday)
     )
+
     dispatcher.add_handler(
-        MessageHandler(Filters.regex(r"Quando c'è"), send_next_lesson)
+        MessageHandler(Filters.regex(r"[Qq]uando c'è"), send_next_lesson)
     )
     dispatcher.add_handler(
-        MessageHandler(Filters.regex(r"bene|male|benissimo|uno schifo"), answer_handler)
+        MessageHandler(
+            Filters.regex(r"[Bb]ene|[Mm]ale|[Bb]enissimo|[Ss]chifo|ok"),
+            user_status_handler,
+        )
     )
-
-    dispatcher.add.handler(MessageHandler(Filters.regex(r"[Cc]he ore sono|[Cc]he ora è"),send_time))
-
+    dispatcher.add_handler(
+        MessageHandler(Filters.regex(r"[Cc]ome stai"), status_handler)
+    )
+    dispatcher.add_handler(MessageHandler(Filters.regex(r"[Cc]he ore sono"), send_time))
     dispatcher.add_handler(MessageHandler(Filters.text, unrecognized_message_handler))
+    
     updater.start_polling()
+    updater.idle()
 
 
 if __name__ == "__main__":
