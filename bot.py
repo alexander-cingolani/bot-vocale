@@ -2,6 +2,7 @@ import locale
 import random
 from datetime import datetime, time
 from os import environ
+import set_environment_vars
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -27,7 +28,7 @@ from components.schedule_callbacks import (
     remind_schedule,
     send_next_lesson,
 )
-from components.utils import read_file, speech_to_text, text_to_speech
+from components.utils import read_file, speech_to_text, text_to_speech, write_file
 
 
 def start_command(update: Update, context: CallbackContext):
@@ -94,13 +95,20 @@ def speech_to_text_file(update: Update, context: CallbackContext):
     """Transcribes the voice message sent by the user into a txt file
     he writes it in a file"""
 
-    context.bot.send_chat_action(chat_id=update.effective_chat.id, action="TYPING")
+    text = context.user_data["recognized_text"]
+    text = text[17:]
+    
+    file_name = write_file(text)
+    
+    context.bot.send_document(chat_id=update.effective_chat.id, document = file_name)
+    
 
-    file_name = update.message.voice.get_file().download()
-    recognized_text = speech_to_text(file_name)
-
-    # ANCORA LO DEVO FINIRE
-    # Ricorda di eliminare la prima parola che sarà "trascrivi"
+def speech_to_text_message(update: Update, context: CallbackContext):
+    
+    text = context.user_data["recognized_text"]
+    text = text[6:]
+    
+    context.bot.send_message(chat_id=update.effective_chat.id, text = text)
 
 
 def audio_message_handler(update: Update, context: CallbackContext):
@@ -142,8 +150,10 @@ def confirm_handler(update: Update, context: CallbackContext):
         return
 
     transcribed_message = context.user_data["recognized_text"].lower()
-    if "trascrivi" in transcribed_message[:9]:
+    if "trascrivi su file" in transcribed_message:
         speech_to_text_file(update, context)
+    elif "ripeti" in transcribed_message:
+        speech_to_text_message(update,context)
     elif "come stai" in transcribed_message:
         status_handler(update, context)
     elif "che ore sono" in transcribed_message or "che ora è" in transcribed_message:
