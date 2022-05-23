@@ -41,15 +41,16 @@ def add_birthday(update: Update, context: CallbackContext, **kwargs):
         )
 
     chat_id = update.effective_chat.id
-
     reformatted_birthday = datetime.strptime(birthday, "%d/%m").strftime("%#d %B")
     if f"{name} {surname}" not in context.bot_data[chat_id]["Birthdays"]:
         text = f"Ok! Il {reformatted_birthday} ti ricorderò del compleanno di {name} {surname}."
-    else:
+    elif birthday not in context.bot_data[chat_id]["Birthdays"].values():
         text = (
             f"Ok! Ho modificato la data del suo compleanno al {reformatted_birthday}."
         )
-
+    else:
+        text = "Già me lo avevi detto."
+        
     context.bot_data[chat_id]["Birthdays"].update({f"{name} {surname}": birthday})
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
