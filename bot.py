@@ -110,7 +110,7 @@ def text_file_to_speech(update: Update, context: CallbackContext):
 def speech_to_text_file(update: Update, context: CallbackContext):
     """Transcribes the voice message sent by the user into a txt file"""
     text = context.user_data["recognized_text"]
-    text = text[17:]
+    text = text[14:]
     
     file_name = write_file(text)
     with open(file_name, "rb") as file:
@@ -159,13 +159,11 @@ def audio_message_handler(update: Update, context: CallbackContext):
 def confirm_handler(update: Update, context: CallbackContext):
     """Asks user to confirm if the text generated from the voice message is correct."""
     if update.callback_query.data == "incorrect":
-        text = "Non ho capito bene, ripeti perfavore."
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
         return
 
     transcribed_message = context.user_data["recognized_text"].lower()
 
-    if "trascrivi su file" in transcribed_message:
+    if "scrivi su file" in transcribed_message:
         speech_to_text_file(update, context)
     elif "ripeti" in transcribed_message:
         speech_to_text_message(update,context)
@@ -179,10 +177,8 @@ def confirm_handler(update: Update, context: CallbackContext):
         send_specific_birthday(update, context)
     elif "compie gli anni" in transcribed_message:
         add_birthday(update, context, from_audio=True)
-    elif "compleanno" in transcribed_message:
-        send_specific_birthday(update, context)
     elif "dimentica" in transcribed_message:
-        remove_birthday(update, context, from_audio=True)
+        remove_birthday(update, context)
     elif "mostrami i compleanni salvati" in transcribed_message:
         show_birthday_list(update, context)
     elif "ricordami dei compleanni salvati" in transcribed_message:
