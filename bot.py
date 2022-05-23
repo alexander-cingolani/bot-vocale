@@ -15,7 +15,6 @@ from telegram.ext import (
     Updater,
 )
 
-import set_environment_vars
 from components.birthday_callbacks import (
     add_birthday,
     add_known_birthdays,
@@ -65,9 +64,8 @@ def send_command_list(update: Update, context: CallbackContext):
 
 <b>Comandi vocali:</b>
 <i>"Trascrivi su file ..."</i> - Trascriverò ciò che hai detto in un file di testo.
-<i>"Ripeti ..."</i> - Ripeterò ciò che hai detto in un messaggio
-<i>"Ricordami dei compleanni salvati"</i> - Ti ricorderò dei compleanni che hai aggiunto
-e che aggiungerai.
+<i>"Ripeti ..."</i> - Ripeterò ciò che hai detto in un messaggio.
+<i>"Ricordami dei compleanni salvati"</i> - Ti ricorderò dei compleanni salvati.
 <i>"Ricordami le materie"</i> - Ogni giorno ti invierò la lista delle materie del mattino seguente.
 <i>"Non ricordarmi le materie"</i> - Smetterò di ricordarti delle tue materie.
 <i>"Mostrami i compleanni salvati"</i> - Per vedere l'elenco dei compleanni salvati.
@@ -256,7 +254,7 @@ def main():
 
     dispatcher = updater.dispatcher
     job_queue.run_daily(
-        callback=send_schedule, days=(0, 1, 2, 3, 4, 5), time=time(hour=15)
+        callback=send_schedule, days=(0, 1, 2, 3, 4, 6), time=time(hour=14)
     )
     job_queue.run_daily(callback=check_birthdays, time=time(hour=7))
     dispatcher.add_handler(CommandHandler("inizia", start_command))
