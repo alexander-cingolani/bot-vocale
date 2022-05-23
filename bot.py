@@ -97,13 +97,14 @@ def help_command(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
-def file_handler(update: Update, context: CallbackContext):
-    """Takes the text from the user's file and sends him a voice message
+def text_file_to_speech(update: Update, context: CallbackContext):
+    """Takes the text from the user's file and sends him an audio message
     which reads the text contained in the file"""
-    file_name = update.file.get_file().download()
+    file_name = update.message.document.get_file().download()
     text = read_file(file_name)
-    audio_message = text_to_speech(text)
-    context.bot.send_voice(chat_id=update.effective_chat.id, text=audio_message)
+    voice_message = text_to_speech(text)
+    with open(voice_message, "rb") as vm:
+        context.bot.send_voice(update.effective_chat.id, vm)
 
 
 def speech_to_text_file(update: Update, context: CallbackContext):
@@ -112,8 +113,8 @@ def speech_to_text_file(update: Update, context: CallbackContext):
     text = text[17:]
     
     file_name = write_file(text)
-    
-    context.bot.send_document(chat_id=update.effective_chat.id, document = file_name)
+    with open(file_name, "rb") as file:
+        context.bot.send_document(chat_id=update.effective_chat.id, document=file)
     
 
 def speech_to_text_message(update: Update, context: CallbackContext):
@@ -205,16 +206,6 @@ def status_handler(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
-def text_file_to_speech(update: Update, context: CallbackContext):
-    """Takes the text from the user's file and sends him an audio message
-    which reads the text contained in the file"""
-    file_name = update.file.get_file().download()
-    text = read_file(file_name)
-    voice_message = text_to_speech(text)
-
-    context.bot.send_voice(update.effective_chat.id, voice_message)
-
-
 def user_status_handler(update: Update, context: CallbackContext):
     """Sends the user a different message according to their answer to the previous question."""
     try:
@@ -244,7 +235,6 @@ def unrecognized_message_handler(update: Update, context: CallbackContext):
 
 def main():
     """Runs the bot"""
-
     locale.setlocale(locale.LC_ALL, "ita_ita")
     TOKEN = environ.get("TOKEN")
 
@@ -257,6 +247,7 @@ def main():
         callback=send_schedule, days=(0, 1, 2, 3, 4, 6), time=time(hour=14)
     )
     job_queue.run_daily(callback=check_birthdays, time=time(hour=7))
+    dispatcher.add_handler(MessageHandler(Filters.document, text_file_to_speech))
     dispatcher.add_handler(CommandHandler("inizia", start_command))
     dispatcher.add_handler(CommandHandler("help", help_command))
     dispatcher.add_handler(CommandHandler("ricordami_compleanni", remind_birthdays))
