@@ -15,7 +15,6 @@ from telegram.ext import (
     Updater,
 )
 
-import set_environment_vars
 from components.birthday_callbacks import (
     add_birthday,
     add_known_birthdays,
@@ -65,9 +64,8 @@ def send_command_list(update: Update, context: CallbackContext):
 
 <b>Comandi vocali:</b>
 <i>"Trascrivi su file ..."</i> - Trascriverò ciò che hai detto in un file di testo.
-<i>"Ripeti ..."</i> - Ripeterò ciò che hai detto in un messaggio
-<i>"Ricordami dei compleanni salvati"</i> - Ti ricorderò dei compleanni che hai aggiunto
-e che aggiungerai.
+<i>"Ripeti ..."</i> - Ripeterò ciò che hai detto in un messaggio.
+<i>"Ricordami dei compleanni salvati"</i> - Ti ricorderò dei compleanni salvati.
 <i>"Ricordami le materie"</i> - Ogni giorno ti invierò la lista delle materie del mattino seguente.
 <i>"Non ricordarmi le materie"</i> - Smetterò di ricordarti delle tue materie.
 <i>"Mostrami i compleanni salvati"</i> - Per vedere l'elenco dei compleanni salvati.
@@ -99,23 +97,24 @@ def help_command(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
-def file_handler(update: Update, context: CallbackContext):
-    """Takes the text from the user's file and sends him a voice message
+def text_file_to_speech(update: Update, context: CallbackContext):
+    """Takes the text from the user's file and sends him an audio message
     which reads the text contained in the file"""
-    file_name = update.file.get_file().download()
+    file_name = update.message.document.get_file().download()
     text = read_file(file_name)
-    audio_message = text_to_speech(text)
-    context.bot.send_voice(chat_id=update.effective_chat.id, text=audio_message)
+    voice_message = text_to_speech(text)
+    with open(voice_message, "rb") as vm:
+        context.bot.send_voice(update.effective_chat.id, vm)
 
 
 def speech_to_text_file(update: Update, context: CallbackContext):
     """Transcribes the voice message sent by the user into a txt file"""
     text = context.user_data["recognized_text"]
-    text = text[17:]
+    text = text[14:]
     
     file_name = write_file(text)
-    
-    context.bot.send_document(chat_id=update.effective_chat.id, document = file_name)
+    with open(file_name, "rb") as file:
+        context.bot.send_document(chat_id=update.effective_chat.id, document=file)
     
 
 def speech_to_text_message(update: Update, context: CallbackContext):
@@ -160,13 +159,11 @@ def audio_message_handler(update: Update, context: CallbackContext):
 def confirm_handler(update: Update, context: CallbackContext):
     """Asks user to confirm if the text generated from the voice message is correct."""
     if update.callback_query.data == "incorrect":
-        text = "Non ho capito bene, ripeti perfavore."
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
         return
 
     transcribed_message = context.user_data["recognized_text"].lower()
 
-    if "trascrivi su file" in transcribed_message:
+    if "scrivi su file" in transcribed_message:
         speech_to_text_file(update, context)
     elif "ripeti" in transcribed_message:
         speech_to_text_message(update,context)
@@ -180,10 +177,8 @@ def confirm_handler(update: Update, context: CallbackContext):
         send_specific_birthday(update, context)
     elif "compie gli anni" in transcribed_message:
         add_birthday(update, context, from_audio=True)
-    elif "compleanno" in transcribed_message:
-        send_specific_birthday(update, context)
     elif "dimentica" in transcribed_message:
-        remove_birthday(update, context, from_audio=True)
+        remove_birthday(update, context)
     elif "mostrami i compleanni salvati" in transcribed_message:
         show_birthday_list(update, context)
     elif "ricordami dei compleanni salvati" in transcribed_message:
@@ -205,16 +200,6 @@ def status_handler(update: Update, context: CallbackContext):
     """Tells user status of the bot and asks for user status"""
     text = status_messages[random.randint(0, len(status_messages) - 1)]
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
-
-def text_file_to_speech(update: Update, context: CallbackContext):
-    """Takes the text from the user's file and sends him an audio message
-    which reads the text contained in the file"""
-    file_name = update.file.get_file().download()
-    text = read_file(file_name)
-    voice_message = text_to_speech(text)
-
-    context.bot.send_voice(update.effective_chat.id, voice_message)
 
 
 def user_status_handler(update: Update, context: CallbackContext):
@@ -246,7 +231,6 @@ def unrecognized_message_handler(update: Update, context: CallbackContext):
 
 def main():
     """Runs the bot"""
-
     locale.setlocale(locale.LC_ALL, "ita_ita")
     TOKEN = environ.get("TOKEN")
 
@@ -256,9 +240,10 @@ def main():
 
     dispatcher = updater.dispatcher
     job_queue.run_daily(
-        callback=send_schedule, days=(0, 1, 2, 3, 4, 5), time=time(hour=15)
+        callback=send_schedule, days=(0, 1, 2, 3, 4, 6), time=time(hour=14)
     )
     job_queue.run_daily(callback=check_birthdays, time=time(hour=7))
+    dispatcher.add_handler(MessageHandler(Filters.document, text_file_to_speech))
     dispatcher.add_handler(CommandHandler("inizia", start_command))
     dispatcher.add_handler(CommandHandler("help", help_command))
     dispatcher.add_handler(CommandHandler("ricordami_compleanni", remind_birthdays))

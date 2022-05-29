@@ -8,6 +8,7 @@ from components.const import days_of_the_week, weekly_schedule
 
 def send_next_lesson(update: Update, context: CallbackContext):
     """Sends the user a message containing info on when the next requested lesson is."""
+
     try:
         requested_subject = update.message.text[11:].lower().strip()
     except AttributeError:
@@ -30,6 +31,7 @@ def send_next_lesson(update: Update, context: CallbackContext):
                         f"La prossima lezione di {subject} è {days_of_the_week[weekday]}"
                         f" alle {class_time}."
                     )
+                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
                 return
 
             if (
