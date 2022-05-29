@@ -1,7 +1,7 @@
 # About bot-vocale
 
 This bot (@terzabiessebot) is designed to remind the user of his schedule, as well as his classmate's birthdays.
-It supports both voice commands and text based commands.
+It supports both voice and text based commands.
 
 # Dependencies
 
