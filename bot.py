@@ -160,6 +160,8 @@ def confirm_handler(update: Update, context: CallbackContext):
     else:
         text="Non ho capito, consulta la /lista_comandi per vedere a cosa so rispondere."
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+        
+        
 def status_handler(update: Update, context: CallbackContext):
     """Tells user status of the bot and asks for user status"""
     text = status_messages[random.randint(0, len(status_messages) - 1)]
