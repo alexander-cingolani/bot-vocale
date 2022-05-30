@@ -17,13 +17,13 @@ def add_user(update: Update, context: CallbackContext):
 
 
 def send_next_lesson(update: Update, context: CallbackContext):
-    """Sends the user a message with date and time of the next requested lesson."""
+    """Sends the user a message with date and time of the next lesson."""
 
     try:
         requested_subject = update.message.text[11:].lower()
     except AttributeError:
         requested_subject = context.user_data["recognized_text"][11:].lower()
-
+    
     requested_subject = requested_subject.replace("?", "").replace(" ", "_")
     current_weekday = datetime.now().weekday()
     
@@ -50,18 +50,15 @@ def send_next_lesson(update: Update, context: CallbackContext):
     text = f"Non ho trovato {requested_subject} tra le materie salvate."
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
-    
-
 
 def remind_schedule(update: Update, context: CallbackContext):
     """Starts reminding the user about his schedule."""
 
     chat_id = update.effective_chat.id
     add_user(update, context)
-
     user_data = context.bot_data[chat_id]
     if not user_data.get("remind schedule"):
-        text = "Ok! D'ora in poi ti ricorderò ogni giorno alle 15 delle materie del giorno dopo."
+        text = "Ok! Ogni giorno alle 15 ti ricorderò delle materie del giorno dopo."
         context.bot_data[chat_id]["remind schedule"] = True
     else:
         text = "Ok! Sappi che lo stavo già facendo."
@@ -85,7 +82,6 @@ def stop_reminding_schedule(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=chat_id, text=text)
     
 
-
 def send_schedule(context: CallbackContext):
     """Sends each (subscribed) user the following day's schedule."""
 
@@ -97,6 +93,7 @@ def send_schedule(context: CallbackContext):
     for user in context.bot_data:
         if user.get("remind schedule"):
             context.bot.send_message(chat_id=user, text=text)
+
 
 if __name__ == "__main__":
     print("Questo file non dovrebbe essere eseguito.")
