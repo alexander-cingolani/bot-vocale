@@ -18,10 +18,10 @@ def convert_oga_to_wav(oga_file_name: str) -> str:
 
     # Creates an AudioSegment Object from the ogg file
     audio_segment = pydub.AudioSegment.from_ogg(ogg_file_name)
-    audio_segment.export("converted_file.wav", "wav") # Creates new wav file from that AudioSegment
+    audio_segment.export("converted_file.wav", "wav") # Creates a new wav file from the AudioSegment
 
     os.remove(ogg_file_name) # Removes the unused ogg file
-    return "converted_file.wav" # Returns converted file name
+    return "converted_file.wav" # Returns the converted file name
 
 
 def speech_to_text(oga_file_name: str) -> str:
@@ -37,10 +37,10 @@ def speech_to_text(oga_file_name: str) -> str:
     converted_file = convert_oga_to_wav(oga_file_name) # Converts oga file to wav file
     audio_file = speech_recognition.AudioFile(converted_file) # Creates AudioFile object
 
-    with audio_file as source: # Opens AudioFile object as source
+    with audio_file as source:
         audio_data = recognizer.record(source) # Creates AudioData object from source
     try:
-        # Sends AudioData to Google's speech recognition API
+        # Sends AudioData to Google's speech recognition API, which returns the recognized text
         text = recognizer.recognize_google(audio_data, language="it-IT")  
     except speech_recognition.UnknownValueError: # Handles error if no speech is recognized
         text = ""
@@ -48,7 +48,7 @@ def speech_to_text(oga_file_name: str) -> str:
     return text
 
 
-def text_to_speech(text: str) -> None:
+def text_to_speech(text: str) -> str:
     """Converts text into a .oga audio file, using window's default voice.
     Returns converted file name
 
@@ -67,7 +67,7 @@ def text_to_speech(text: str) -> None:
     return "output_message.oga"
 
 
-def read_file(filename: str):
+def read_file(filename: str) -> str:
     """Returns the text contained in the given txt file
 
     Args:
@@ -79,7 +79,7 @@ def read_file(filename: str):
         return text
 
 
-def write_file(text):
+def write_file(text) -> str:
     """Writes text to a file and returns its name.
 
     Args:
@@ -94,7 +94,7 @@ def write_file(text):
         return "text_file.txt"
 
 
-def time_delta(lst):
+def time_delta(lst) -> int:
     """Helper function which calculates how many days remain until the given date
 
     Args:
